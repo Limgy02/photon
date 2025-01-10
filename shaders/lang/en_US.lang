@@ -201,6 +201,10 @@ option.BLOCKLIGHT_R                    = Red
 option.BLOCKLIGHT_G                    = Green
 option.BLOCKLIGHT_B                    = Blue
 option.BLOCKLIGHT_I                    = Blocklight Intensity
+option.NIGHT_RAIN_I                    = Night Rain Intensity
+option.RAIN_LIGHT_I                    = Rain Intensity
+option.SNOW_LIGHT_I                    = Snow Intensity
+option.SANDSTORM_LIGHT_I               = Sandstorm Intensity
 
 option.VOXEL_VOLUME_SIZE               = Voxel Volume Size
 option.VOXEL_VOLUME_SIZE.comment       = High performance impact, also affected by shadow distance
