@@ -12,9 +12,14 @@
 #include "/include/global.glsl"
 
 layout (location = 0) out vec3 scene_color;
+
+#ifdef IS_IRIS
+/* RENDERTARGETS: 0 */
+#else
 layout (location = 1) out vec4 colortex3_clear;
 
 /* RENDERTARGETS: 0,3 */
+#endif
 
 in vec2 uv;
 
@@ -38,15 +43,19 @@ flat in mat3 sky_samples;
 
 uniform sampler2D noisetex;
 
+uniform sampler2D colortex0; // skytextured output
 uniform sampler2D colortex1; // gbuffer 0
 uniform sampler2D colortex2; // gbuffer 1
-uniform sampler2D colortex3; // animated overlays/vanilla sky
 uniform sampler2D colortex4; // sky map
 uniform sampler2D colortex5; // previous frame color
 uniform sampler2D colortex6; // ambient occlusion
 uniform sampler2D colortex7; // previous frame fog scattering
 uniform sampler2D colortex11; // clouds history
 uniform sampler2D colortex12; // clouds apparent distance
+
+#ifndef IS_IRIS
+uniform sampler2D colortex3; // OF damage overlay, armor glint
+#endif
 
 #if defined WORLD_OVERWORLD && defined GALAXY
 uniform sampler2D colortex14;
@@ -183,7 +192,9 @@ vec4 read_clouds_and_aurora(out float apparent_distance) {
 }
 
 void main() {
+#if !defined IS_IRIS
 	colortex3_clear = vec4(0.0);
+#endif
 
 	ivec2 texel = ivec2(gl_FragCoord.xy);
 
@@ -194,7 +205,9 @@ void main() {
 #if defined NORMAL_MAPPING || defined SPECULAR_MAPPING
 	vec4 gbuffer_data_1 = texelFetch(colortex2, texel, 0);
 #endif
+#if !defined IS_IRIS
 	vec4 overlays       = texelFetch(colortex3, texel, 0);
+#endif
 
 	float clouds_distance;
 	vec4 clouds_and_aurora = read_clouds_and_aurora(clouds_distance);
@@ -219,7 +232,14 @@ void main() {
 	vec3 world_dir = normalize(scene_pos - gbufferModelViewInverse[3].xyz);
 
 #if defined WORLD_OVERWORLD
-	vec3 atmosphere = atmosphere_scattering(world_dir, sun_color, sun_dir, moon_color, moon_dir);
+	vec3 atmosphere = atmosphere_scattering(
+		world_dir, 
+		sun_color, 
+		sun_dir, 
+		moon_color, 
+		moon_dir, 
+		/* use_klein_nishina_phase */ depth == 1.0
+	);
 
 #ifdef BLOCKY_CLOUDS
 	vec3 world_start_pos = gbufferModelViewInverse[3].xyz + cameraPosition;
@@ -266,7 +286,7 @@ void main() {
 		scene_color = scene_color * clouds_and_aurora.w + clouds_and_aurora.xyz;
 
 		// Apply blocky clouds 
-#ifdef BLOCKY_CLOUDS 
+#if defined WORLD_OVERWORLD && defined BLOCKY_CLOUDS 
 		scene_color = scene_color * blocky_clouds.w + blocky_clouds.xyz;
 #endif
 
@@ -303,9 +323,11 @@ void main() {
 		vec3 flat_normal   = decode_unit_vector(data[2]);
 		vec2 light_levels  = data[3];
 
+#if !defined IS_IRIS
 		uint overlay_id = uint(255.0 * overlays.a);
 		albedo = overlay_id == 0u ? albedo + overlays.rgb : albedo; // enchantment glint
 		albedo = overlay_id == 1u ? 2.0 * albedo * overlays.rgb : albedo; // damage overlay
+#endif
 
 		// Get material and normal
 
@@ -364,9 +386,7 @@ void main() {
 
 		#undef depth_weight
 
-		gtao = (gtao.w == 0.0) ? vec4(0.0) : gtao / gtao.w;
-
-		float ao = gtao.x;
+		float ao = (gtao.w == 0.0) ? half_res_00.x : gtao.x / gtao.w;
 #else
 		#define ao 1.0
 #endif
@@ -466,7 +486,7 @@ void main() {
 		float view_distance = length(view_pos);
 
 #ifdef BORDER_FOG
-	#ifdef WORLD_OVERWORLD
+	#if defined WORLD_OVERWORLD
 		vec3 horizon_dir = normalize(vec3(world_dir.xz, min(world_dir.y, -0.1)).xzy);
 		vec3 horizon_color = texture(colortex4, project_sky(horizon_dir)).rgb;
 
@@ -486,12 +506,14 @@ void main() {
 		scene_color = scene_color * fog.a + fog.rgb;
 
 		// Apply clouds in front of terrain
-#ifndef BLOCKY_CLOUDS
+#if defined WORLD_OVERWORLD
+	#ifndef BLOCKY_CLOUDS
 		if (clouds_distance < view_distance) {
 			scene_color = scene_color * clouds_and_aurora.w + clouds_and_aurora.xyz;
 		}
-#else
+	#else
 		scene_color = scene_color * blocky_clouds.w + blocky_clouds.xyz;
+	#endif
 #endif
 
 		// Apply purkinje shift

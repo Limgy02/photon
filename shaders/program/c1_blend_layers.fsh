@@ -235,7 +235,7 @@ void main() {
 
 	// Blend layers
 
-	fragment_color = mix(fragment_color, translucent_color.rgb, translucent_color.a);
+	fragment_color = fragment_color * (1.0 - translucent_color.a) + translucent_color.rgb;
 
 	// Draw Distant Horizons water
 

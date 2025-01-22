@@ -232,6 +232,8 @@ value.shadowDistance.384.0             = 24 chunks
 value.shadowDistance.512.0             = 32 chunks
 value.shadowDistance.768.0             = 48 chunks
 value.shadowDistance.1024.0            = 64 chunks
+value.shadowDistance.2048.0            = 128 chunks
+value.shadowDistance.4096.0            = 256 chunks
 
 # Sky settings
 
@@ -663,6 +665,7 @@ option.CUSTOM_SKY.comment              = Enable custom skies from resource packs
 option.CUSTOM_SKY_BRIGHTNESS           = Custom Sky Brightness
 option.CUSTOM_SKY_BRIGHTNESS.comment   = Adjust custom sky brightness
 option.NOISE_ON_DH_TERRAIN             = Noise on DH terrain
+option.ENCHANTMENT_GLINT_BRIGHTNESS    = Enchantment Glint Brightness
 
 value.DEBUG_VIEW.DEBUG_VIEW_NONE       = OFF
 value.DEBUG_VIEW.DEBUG_VIEW_SAMPLER    = Sampler

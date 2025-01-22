@@ -11,14 +11,16 @@
 
 #include "/include/global.glsl"
 
+layout (location = 0) out vec3 frag_color;
 
-layout (location = 0) out vec4 scene_color;
-
-/* RENDERTARGETS: 3 */
+/* RENDERTARGETS: 0 */
 
 in vec2 uv;
+in vec3 view_pos;
 
 flat in vec3 tint;
+flat in vec3 sun_color;
+flat in vec3 moon_color;
 
 // ------------
 //   Uniforms
@@ -29,30 +31,46 @@ uniform sampler2D gtexture;
 uniform int moonPhase;
 uniform int renderStage;
 
+uniform vec3 view_sun_dir;
+
+#include "/include/sky/atmosphere.glsl"
+#include "/include/utility/color.glsl"
+
+const float vanilla_sun_luminance = 10.0; 
+const float moon_luminance = 4.0; 
+
 void main() {
 	vec2 new_uv = uv;
 	vec2 offset;
 
-	switch (renderStage) {
-#ifdef VANILLA_SUN
-	case MC_RENDER_STAGE_SUN:
-	 	// alpha of 2 <=> sun
-		scene_color.a = 2.0 / 255.0;
+	if (renderStage == MC_RENDER_STAGE_CUSTOM_SKY) {
+#ifdef CUSTOM_SKY
+		frag_color  = texture(gtexture, new_uv).rgb;
+		frag_color  = srgb_eotf_inv(frag_color) * rec709_to_working_color;
+		frag_color *= CUSTOM_SKY_BRIGHTNESS;
+#else
+		frag_color  = vec3(0.0);
+#endif
+	} else if (dot(view_pos, view_sun_dir) > 0.0) {
+		// Sun
+
+		// NB: not using renderStage to distinguish sun and moon because it's broken in Iris for 
+		// Minecraft 1.21.4
 
 		// Cut out the sun itself (discard the halo around it)
-		offset = uv * 2.0 - 1.0;
-		if (max_of(abs(offset)) > 0.25) discard;
+		// offset = uv * 2.0 - 1.0;
+		// if (max_of(abs(offset)) > 0.25) discard;
 
-		scene_color.rgb = texture(gtexture, new_uv).rgb;
-
-		break;
+#ifdef VANILLA_SUN
+		frag_color  = texture(gtexture, new_uv).rgb;
+		frag_color  = srgb_eotf_inv(frag_color) * rec709_to_working_color;
+		frag_color *= dot(frag_color, luminance_weights) * (sunlight_color * vanilla_sun_luminance) * sun_color;
+#else 
+		frag_color  = vec3(0.0);
 #endif
-
+	} else {
+	 	// Moon
 #ifdef VANILLA_MOON
-	case MC_RENDER_STAGE_MOON:
-	 	// Alpha of 3 <=> moon
-		scene_color.a = 3.0 / 255.0;
-
 		// Cut out the moon itself (discard the halo around it) and flip moon texture along the
 		// diagonal
 		/*
@@ -62,14 +80,8 @@ void main() {
 		if (max_of(abs(offset)) > 0.25) discard;
 		*/
 
-		scene_color.rgb = texture(gtexture, new_uv).rgb * vec3(MOON_R, MOON_G, MOON_B);
-
-		break;
+		frag_color = texture(gtexture, new_uv).rgb * vec3(MOON_R, MOON_G, MOON_B);
 #else
-	case MC_RENDER_STAGE_MOON:
-	 	// Alpha of 3 <=> moon
-		scene_color.a = 3.0 / 255.0;
-
 		// Shader moon
 		const float angle      = 0.7;
 		const mat2  rot        = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
@@ -111,27 +123,18 @@ void main() {
 			moon_shadow = 1.0 - linear_step(a * 0.6 - 0.12, a * 0.6 + 0.12, offset.y); break;
 		}
 
-		scene_color.rgb = max(
+		frag_color = max(
 			moon * moon_shadow * lit_color,
 			(0.1 * glow_color) * pulse(dist, 0.95, 0.3) // Moon glow
 		);
 
-		if (dist > 1.3) discard;
-
-		break;
+		if (dist > 1.3) {
+			discard;
+		}
 #endif
 
-#ifdef CUSTOM_SKY
-	case MC_RENDER_STAGE_CUSTOM_SKY:
-	 	// alpha of 4 <=> custom sky
-		scene_color.a = 4.0 / 255.0;
-		scene_color.rgb = texture(gtexture, new_uv).rgb;
-
-		break;
-#endif
-
-	default:
-		discard;
-	}
+		frag_color  = srgb_eotf_inv(frag_color) * rec709_to_working_color;
+		frag_color *= (sunlight_color * moon_luminance) * moon_color;
+	}	
 }
 

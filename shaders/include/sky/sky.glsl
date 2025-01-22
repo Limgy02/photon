@@ -163,33 +163,17 @@ vec3 draw_sky(vec3 ray_dir, vec3 atmosphere) {
 	// Sun, moon and stars
 
 #if defined PROGRAM_DEFERRED4
-	vec4 vanilla_sky = texelFetch(colortex3, ivec2(gl_FragCoord.xy), 0);
-	vec3 vanilla_sky_color = from_srgb(vanilla_sky.rgb);
-	uint vanilla_sky_id = uint(255.0 * vanilla_sky.a);
+	// Output of skytextured
+	sky += texelFetch(colortex0, ivec2(gl_FragCoord.xy), 0).rgb;
 
 #ifdef STARS
+	// Stars
 	sky += draw_stars(celestial_dir, galaxy_luminance);
 #endif
 
-#ifdef VANILLA_SUN
-	if (vanilla_sky_id == 2) {
-		const vec3 brightness_scale = sunlight_color * sun_luminance;
-		sky += vanilla_sky_color * brightness_scale * sun_color;
-	}
-#else
+#ifndef VANILLA_SUN
+	// Sun
 	sky += draw_sun(ray_dir);
-#endif
-
-	if (vanilla_sky_id == 3 && max_of(vanilla_sky_color) > 0.1) {
-		const vec3 brightness_scale = sunlight_color * moon_luminance;
-		sky *= 0.0; // Hide stars behind moon
-		sky += vanilla_sky_color * brightness_scale;
-	}
-
-#ifdef CUSTOM_SKY
-	if (vanilla_sky_id == 4) {
-		sky += vanilla_sky_color * CUSTOM_SKY_BRIGHTNESS;
-	}
 #endif
 #endif
 
@@ -217,7 +201,7 @@ vec3 draw_sky(vec3 ray_dir, vec3 atmosphere) {
 }
 
 vec3 draw_sky(vec3 ray_dir) {
-	vec3 atmosphere = atmosphere_scattering(ray_dir, sun_color, sun_dir, moon_color, moon_dir);
+	vec3 atmosphere = atmosphere_scattering(ray_dir, sun_color, sun_dir, moon_color, moon_dir, true);
 	return draw_sky(ray_dir, atmosphere);
 }
 
